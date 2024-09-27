@@ -17,8 +17,8 @@ def depth_image_to_point_cloud(rgb, depth):
     
     v,u = np.mgrid[0:width,0:height]
     
-    z = depth[:,:,0] * depth_scale
-    z = depth[:, :, 0].astype(np.float32) / 255 * (-10)
+    # to normalize depth value
+    z = depth[:, :, 0].astype(np.float32) / (-25)
     x = (u - width/2) * z / f
     y = (v - height/2) * z / f
     
@@ -31,11 +31,6 @@ def depth_image_to_point_cloud(rgb, depth):
     # create PointCloud object
     pcd = o3d.geometry.PointCloud()
     
-    # filter out points with depth > 1.5m
-    depth_threshold = 80 / 255 * 10
-    filt = points[:, 2] <= depth_threshold
-    points = points[filt,:]
-    rgbs = rgbs[filt,:]
     
     pcd.points = o3d.utility.Vector3dVector(points)
     pcd.colors = o3d.utility.Vector3dVector(rgbs)
@@ -114,7 +109,6 @@ def my_local_icp_algorithm(source_down, target_down, trans_init,threshold):
         # H = (P - cp)(M - cm).T
         # U,S,V_T = SVD(H)
         # R = V_T @ U.T
-        iter += 1 
         sc = np.mean(source,0)
         tc = np.mean(target[i],0)
         r_sc = source -sc
@@ -214,11 +208,12 @@ if __name__ == '__main__':
     '''
     result_pcd, pred_cam_pos = reconstruct(args)
     
+    # remove points above 0.6
     for i in range(len(result_pcd)):
         points = np.asarray(result_pcd[i].points)
         rgbs = np.asarray(result_pcd[i].colors)
-        valid = (points[:, 1] <= 0.25)
-        points, rgbs = points[valid], rgbs[valid]
+        filt = (points[:, 1] <= 0.6)
+        points, rgbs = points[filt], rgbs[filt]
 
         result_pcd[i].points = o3d.utility.Vector3dVector(points[:, 0:3])
         result_pcd[i].colors = o3d.utility.Vector3dVector(rgbs[:, 0:3])
