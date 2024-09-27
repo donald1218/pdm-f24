@@ -30,7 +30,7 @@ class Projection(object):
         # T^C1_C2 = T^C1_W * T^W_C2
         R_t_C2ToW = self.get_Trans_w_c(np.deg2rad(theta),0,0, 0, -2.5, 0)
         R_t_C1ToW = self.get_Trans_w_c(0,0,0, 0, -1, 0)
-        R_t_C2ToC1 = np.dot(np.linalg.inv(R_t_C1ToW),R_t_C2ToW)
+        R_t_C2ToC1 = np.linalg.inv(R_t_C1ToW) @ R_t_C2ToW
         
         # Intrinsic camera matrix
         K = np.array([[f, 0,self.width/2],
@@ -40,15 +40,15 @@ class Projection(object):
 
         new_pixels = []
        
+        # assumption: depth is 2.5 
+        depth = 2.5
         for i in range(len(self.points)):
-            # assumption: depth is 2.5 
-            depth = 2.5
             # convert [u,v] to [x,y,z] by multiplying depth and inverse of intrinsic matrix
-            image_coor = np.dot(np.linalg.inv(K),np.array([[depth*self.points[i][0]],[depth*self.points[i][1]],[depth]]))
+            image_coor = np.linalg.inv(K) @ np.array([[depth*self.points[i][0]],[depth*self.points[i][1]],[depth]])
             # convert [x,y,z] to [X,Y,Z,1] by adding 1 and multiply with transformation matrix
-            p = np.dot(R_t_C2ToC1, np.array([image_coor[0][0],image_coor[1][0],image_coor[2][0],1]))
+            p = R_t_C2ToC1 @ np.array([image_coor[0][0],image_coor[1][0],image_coor[2][0],1])
             # convert [X,Y,Z,1] to [x,y,z] by K*[I|O]*[X,Y,Z,1]
-            d = np.dot(K, np.array([p[0],p[1],p[2]]))
+            d = K @ np.array([p[0],p[1],p[2]])
             # convert [x,y,z] to [u,v] by dividing depth
             new_pixels.append([np.round(d[0]/d[2]),np.round(d[1]/d[2])])
         return new_pixels
@@ -66,7 +66,7 @@ class Projection(object):
                     [np.sin(gamma), np.cos(gamma), 0],
                     [0, 0, 1]])
         
-        R = np.dot(np.dot(Rz,Ry),Rx)
+        R = (Rz@Ry)@Rx
         
         T = np.array([dx,dy,dz])
         

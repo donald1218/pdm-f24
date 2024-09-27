@@ -3,6 +3,7 @@ import open3d as o3d
 import argparse
 import os
 from scipy.spatial.transform import Rotation
+from scipy.spatial import cKDTree
 import cv2
 
 
@@ -78,6 +79,7 @@ def execute_global_registration(source_down, target_down, source_fpfh,target_fpf
 
 def local_icp_algorithm(source_down, target_down, trans_init, threshold):
     
+    # By using TransformationEstimationPointToPlane, the ICP algorithm is able to converge faster and more accurate
     result = o3d.pipelines.registration.registration_icp(
                 source_down, target_down, threshold, trans_init,
                 o3d.pipelines.registration.TransformationEstimationPointToPlane()
@@ -86,10 +88,61 @@ def local_icp_algorithm(source_down, target_down, trans_init, threshold):
     return result
 
 
-def my_local_icp_algorithm(source_down, target_down, trans_init, voxel_size):
+def my_local_icp_algorithm(source_down, target_down, trans_init,threshold):
     # TODO: Write your own ICP function
-    raise NotImplementedError
-    return result
+    
+    trans_ori_to_iter = trans_init.copy()
+    
+    
+    # transform data to numpy array
+    source = np.asarray(source_down.points)
+    target = np.asarray(target_down.points)
+    
+    # [x,y,z] to [x,y,z,1]
+    homo_s = np.hstack((source, np.ones((source.shape[0], 1))))
+    # R@t => t@R_T easy to set
+    # [x, y, z, 1] to [x, y, z]
+    source = homo_s @ trans_ori_to_iter.T [:,0:3]
+    
+    # find closet point by KDTree
+    cKdtree = cKDTree(target)
+    d, i = cKdtree.query(source,k=1)
+    
+    # iter to get trans and assumption result must converges
+    while True:
+        # R@t => t@R_T so all matric should be transposed
+        # H = (P - cp)(M - cm).T
+        # U,S,V_T = SVD(H)
+        # R = V_T @ U.T
+        iter += 1 
+        sc = np.mean(source,0)
+        tc = np.mean(target[i],0)
+        r_sc = source -sc
+        r_tc = target[i] - tc
+        H = r_tc.T @ r_sc
+        U,S,V_T = np.linalg.svd(H)
+        R = U @ V_T
+        
+
+        if np.linalg.det(R) < 0:
+            V_T[:,:] *= -1
+            R = U @ V_T
+            
+        t = tc - sc @ R.T
+        trans_to_next_iter = np.eye(4)
+        trans_to_next_iter[:3,:3] = R
+        trans_to_next_iter [:3,3] = t
+        
+        trans_ori_to_iter = trans_to_next_iter @ trans_ori_to_iter
+
+        # convergence 
+        if np.linalg.norm(trans_to_next_iter - np.eye(4)) < threshold:
+            break 
+        
+        homo_s = np.hstack((source, np.ones((source.shape[0], 1))))
+        source = homo_s @ trans_to_next_iter.T [:,0:3]
+    
+    return trans_ori_to_iter
 
 
 def reconstruct(args):
@@ -117,12 +170,12 @@ def reconstruct(args):
     for i in range (1,num):
         d_source,d_target = pcd_downs[i],pcd_downs[i-1]
         f_source,f_target = pcd_fpfhs[i],pcd_fpfhs[i-1]
-        trans_init = execute_global_registration(d_source, d_target, f_source, f_target, voxel_size=0.07).transformation
-        trans = trans_init
+        trans_init = execute_global_registration(d_source, d_target, f_source, f_target, voxel_size=0.05).transformation
+        trans = trans_init.copy()
         if args.version == 'open3d':
-            trans = local_icp_algorithm(d_source, d_target,trans_init, threshold=0.07*0.4).transformation
+            trans = local_icp_algorithm(d_source, d_target,trans_init, threshold=0.02).transformation
         elif args.version == 'my_icp':
-            trans = my_local_icp_algorithm(d_source, d_target,trans_init, threshold=0.05)
+            trans = my_local_icp_algorithm(d_source, d_target,trans_init, 0.000001)
         pred_cam_pos.append(pred_cam_pos[i-1]@trans)
     
     for i in range (num):
@@ -175,7 +228,7 @@ if __name__ == '__main__':
     gtc_pos = np.tile(np.eye(4),(ground_truth_pos.shape[0],1,1))
     
     # convert quaternion to rotation matrix
-    gtc_pos[:,0:3,0:3] = Rotation.from_quat(ground_truth_pos[:,3:7]).as_matrix()
+    gtc_pos[:,0:3,0:3] = Rotation.from_quat(ground_truth_pos[:,3:]).as_matrix()
     # gtc_pos[:,0:3,0:3] = euler_angle.as_matrix()
     # set translation
     gtc_pos[:,0:3,3] = ground_truth_pos[:,0:3]
