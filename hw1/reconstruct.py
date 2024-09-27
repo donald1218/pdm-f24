@@ -18,15 +18,21 @@ def depth_image_to_point_cloud(rgb, depth):
     v,u = np.mgrid[0:width,0:height]
     
     # to normalize depth value
-    z = depth[:, :, 0].astype(np.float32) / (-25)
+    z = depth[:, :, 0].astype(np.float32) / -25
     x = (u - width/2) * z / f
     y = (v - height/2) * z / f
     
     points = np.stack((x,y,z),axis=-1).reshape(-1,3)
     
     # rgbs = rgb.reshape(-1,3)
-    # RGB to BRG and normalize
+    # RGB to BGR and normalize
     rgbs = (rgb[:, :, [2, 1, 0]].astype(np.float32) / 255).reshape(-1, 3)
+    
+    depth_threshold = -3
+    filt = points[:, 2] >= depth_threshold
+    points = points[filt,:]
+    rgbs = rgbs[filt,:]
+    
     
     # create PointCloud object
     pcd = o3d.geometry.PointCloud()
@@ -155,7 +161,7 @@ def reconstruct(args):
     pcd_downs,pcd_fpfhs = [],[]
     num = len(points_clouds)
     for i in range (num):
-        pcd_down,pcd_fpfh = preprocess_point_cloud(points_clouds[i], voxel_size=0.07)
+        pcd_down,pcd_fpfh = preprocess_point_cloud(points_clouds[i], voxel_size=0.05)
         pcd_downs.append(pcd_down)
         pcd_fpfhs.append(pcd_fpfh)
         
@@ -169,7 +175,7 @@ def reconstruct(args):
         if args.version == 'open3d':
             trans = local_icp_algorithm(d_source, d_target,trans_init, threshold=0.02).transformation
         elif args.version == 'my_icp':
-            trans = my_local_icp_algorithm(d_source, d_target,trans_init, 0.000001)
+            trans = my_local_icp_algorithm(d_source, d_target,trans_init, 0.0000001)
         pred_cam_pos.append(pred_cam_pos[i-1]@trans)
     
     for i in range (num):
@@ -212,7 +218,7 @@ if __name__ == '__main__':
     for i in range(len(result_pcd)):
         points = np.asarray(result_pcd[i].points)
         rgbs = np.asarray(result_pcd[i].colors)
-        filt = (points[:, 1] <= 0.6)
+        filt = (points[:, 1] <= 0.2)
         points, rgbs = points[filt], rgbs[filt]
 
         result_pcd[i].points = o3d.utility.Vector3dVector(points[:, 0:3])
