@@ -25,16 +25,16 @@ if [ "$run_bev" = true ]; then
     python3 bev.py
 fi
 
+if [ "$run_load" = true ]; then
+
+    python3 load.py
+
+    python3 load.py -f 2
+
+fi
 
 if [ "$run_reconstruct" = true ]; then
     
-    if [ "$run_load" = true ]; then
-
-        python3 load.py
-
-        python3 load.py -f 2
-
-    fi
 
     if [ "$use_tmux" = true ]; then
         tmux new-session -d -s mysession "echo 'open3d first_floor' && python3 reconstruct.py -v open3d"
