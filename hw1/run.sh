@@ -2,14 +2,16 @@
 
 
 run_bev=true
-run_load=true
+run_reconstruct=true
+run_load=false
 use_tmux=false
 
-while getopts "cbf" flag; do
+while getopts "cbrl" flag; do
     case "${flag}" in
         c) use_tmux=true ;;      
-        b) run_load=false ;;    
-        f) run_bev=false ;;     
+        b) run_reconstruct=false ;;    
+        r) run_bev=false ;;
+        l) run_load=true ;;     
     esac
 done
 
@@ -23,12 +25,17 @@ if [ "$run_bev" = true ]; then
     python3 bev.py
 fi
 
-if [ "$run_load" = true ]; then
-    python3 load.py
 
-    python3 load.py -f 2
-
+if [ "$run_reconstruct" = true ]; then
     
+    if [ "$run_load" = true ]; then
+
+        python3 load.py
+
+        python3 load.py -f 2
+
+    fi
+
     if [ "$use_tmux" = true ]; then
         tmux new-session -d -s mysession "echo 'open3d first_floor' && python3 reconstruct.py -v open3d"
         tmux split-window -h "echo 'open3d second_floor' && python3 reconstruct.py -f 2 -v open3d"
