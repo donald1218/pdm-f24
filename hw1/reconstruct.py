@@ -18,6 +18,7 @@ def depth_image_to_point_cloud(rgb, depth):
     v,u = np.mgrid[0:width,0:height]
     
     # to normalize depth value
+    # magic number
     z = depth[:, :, 0].astype(np.float32) / -25
     x = (u - width/2) * z / f
     y = (v - height/2) * z / f
@@ -108,13 +109,14 @@ def my_local_icp_algorithm(source_down, target_down, trans_init,threshold):
     # find closet point by KDTree
     cKdtree = cKDTree(target)
     d, i = cKdtree.query(source,k=1)
-    
-    # iter to get trans and assumption result must converges
+    iter = 0
+    # iter to get trans 
     while True:
         # R@t => t@R_T so all matric should be transposed
         # H = (P - cp)(M - cm).T
         # U,S,V_T = SVD(H)
         # R = V_T @ U.T
+        iter += 1
         sc = np.mean(source,0)
         tc = np.mean(target[i],0)
         r_sc = source -sc
@@ -138,6 +140,10 @@ def my_local_icp_algorithm(source_down, target_down, trans_init,threshold):
         # convergence 
         if np.linalg.norm(trans_to_next_iter - np.eye(4)) < threshold:
             break 
+        
+        # divergence
+        if iter > 300:
+            break
         
         homo_s = np.hstack((source, np.ones((source.shape[0], 1))))
         source = homo_s @ trans_to_next_iter.T [:,0:3]
@@ -214,7 +220,7 @@ if __name__ == '__main__':
     '''
     result_pcd, pred_cam_pos = reconstruct(args)
     
-    # remove points above 0.6
+    # remove points above 0.2 
     for i in range(len(result_pcd)):
         points = np.asarray(result_pcd[i].points)
         rgbs = np.asarray(result_pcd[i].colors)
@@ -223,29 +229,33 @@ if __name__ == '__main__':
 
         result_pcd[i].points = o3d.utility.Vector3dVector(points[:, 0:3])
         result_pcd[i].colors = o3d.utility.Vector3dVector(rgbs[:, 0:3])
+        
     
     # x y z /x y z w
     ground_truth_pos = np.load(args.data_root + "/GT_pose.npy")
-    gtc_pos = np.tile(np.eye(4),(ground_truth_pos.shape[0],1,1))
+    framenum = ground_truth_pos.shape[0]
+    gtc_pos = np.tile(np.eye(4),(framenum,1,1))
     
     # convert quaternion to rotation matrix
     gtc_pos[:,0:3,0:3] = Rotation.from_quat(ground_truth_pos[:,3:]).as_matrix()
-    # gtc_pos[:,0:3,0:3] = euler_angle.as_matrix()
     # set translation
     gtc_pos[:,0:3,3] = ground_truth_pos[:,0:3]
-    # base on 1.png gtc_pos to change coordinate 
-    gtc_pose = np.tile(np.linalg.inv(gtc_pos[[0]]), (gtc_pos.shape[0], 1, 1)) @ gtc_pos
-    gt_cam_position = gtc_pose[:, 0:3, 3]
+    # base on 1.png gtc_pos to change coordinate to base 1
+    gtc_pose = np.tile(np.linalg.inv(gtc_pos[[0]]), (framenum, 1, 1)) @ gtc_pos
+    gt_cam_position = gtc_pose @ np.tile(np.array([0,0,0,1]).reshape(4, 1),(framenum,1,1)) 
+    gt_cam_position = gt_cam_position[:, :3, :].reshape(framenum, 3)
 
     gt_cam_position[:,2] = -gt_cam_position[:,2]
     gt_cam_position[:,0] = -gt_cam_position[:,0]
-    pred_cam_position = pred_cam_pos[:, 0:3, 3]
+
+    pred_cam_position = pred_cam_pos @ np.tile(np.array([0,0,0,1]).reshape(4, 1),(framenum,1,1)) 
+    pred_cam_position = pred_cam_position[:, :3, :].reshape(framenum, 3)   
 
     # TODO: Calculate and print L2 distance
     '''
     Hint: Mean L2 distance = mean(norm(ground truth - estimated camera trajectory))
     '''
-    print("Mean L2 distance: ", np.mean(np.linalg.norm(gtc_pose - pred_cam_pos)))
+    print("Mean L2 distance: ", np.mean(np.linalg.norm(gt_cam_position - pred_cam_position)))
 
     # TODO: Visualize result
     '''
