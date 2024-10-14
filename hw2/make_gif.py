@@ -22,7 +22,7 @@ def make_gif(output):
                     frames.append(img.copy())  
 
 
-            first_image.save(gif_filename, save_all=True, append_images=frames, duration=100, loop=0)
+            first_image.save(gif_filename, save_all=True, append_images=frames, duration=50, loop=0)
 
         print(f'GIF saved as {gif_filename}')
     else:

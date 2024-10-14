@@ -132,16 +132,19 @@ def get_path(map):
     
     target_object = ""
     color_code = ""
+    target_object_id = 0
     
     while True:
         target_object = input('target : ')
         if target_object in df["Name"].values:
             color_code = df["Color_Code (R,G,B)"][df["Name"] == target_object].values[0]
+            target_object_id = df["Name"][df["Name"] == target_object].index[0]
             break
         else:
             print("Invalid object")
             
     print(color_code)
+    print(target_object_id)
     
     
     target_points = []
@@ -197,7 +200,7 @@ def get_path(map):
     path = cv2.perspectiveTransform(np.array([path],dtype=np.float32),M)
     path[:,:,[0, 1]] = path[:,:,[1, 0]]
     path = path[0]
-    return target_object,c,path
+    return target_object,target_object_id,color_code,path
 
 if __name__ == "__main__":
     get_map()

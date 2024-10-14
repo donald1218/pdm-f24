@@ -10,9 +10,9 @@ import argparse
 import shutil
 from map import get_path,get_map
 from scipy.spatial.transform import Rotation as R
-import time
 from make_gif import make_gif
-
+import json
+import pandas as pd
 
 # This is the scene we are going to load.
 # support a variety of mesh formats, such as .glb, .gltf, .obj, .ply
@@ -104,7 +104,7 @@ def make_simple_cfg(settings):
 
     return habitat_sim.Configuration(sim_cfg, [agent_cfg])
 
-def navigateAndSee(action="", data_root='data_collection/first_floor/',color_code= [0,0,0]):
+def navigateAndSee(action="", data_root='data_collection/first_floor/',target_id = 0,color_code = [0,0,0]):
     global count
     observations = sim.step(action)
     #print("action: ", action)
@@ -117,15 +117,22 @@ def navigateAndSee(action="", data_root='data_collection/first_floor/',color_cod
     
     count += 1
     rgb_img = transform_rgb_bgr(observations["color_sensor"])
-    semantic_img = transform_semantic(observations["semantic_sensor"])
-    semantic_array = np.array(semantic_img)
-    color_code = [color_code[2],color_code[1],color_code[0]]
-    color_mask = np.all((semantic_array == color_code), axis=-1)
-    overlay = np.zeros_like(rgb_img)
-    overlay[color_mask] = [0,0,255]
-    blended_img = cv2.addWeighted(rgb_img, 0.5, overlay, 0.5, 0)
     
-    cv2.imwrite(data_root + f"rgb/{count}.png", blended_img)
+    with open("./replica_v1/apartment_0/habitat/info_semantic.json", "r") as f:
+        annotations = json.load(f)
+    instance_id_to_semantic_label_id = np.array(annotations["id_to_label"])
+    semantic_id = instance_id_to_semantic_label_id[observations["semantic_sensor"]]
+    
+    red_mask = np.full(rgb_img.shape, (0,0,255), dtype=np.uint8)
+    target_id_region = np.where(semantic_id == target_id + 1) 
+
+    
+    if len(target_id_region[0]) != 0:
+        blend_img = cv2.addWeighted(rgb_img, 0.5, red_mask, 0.5, 0)
+        rgb_img[target_id_region] = blend_img[target_id_region]
+
+    
+    cv2.imwrite(data_root + f"rgb/{count}.png", rgb_img)
 
     
     
@@ -168,8 +175,7 @@ args = parser.parse_args()
 
 get_map()
 map = cv2.imread('map.png')
-target_object,color_code,path = get_path(map)
-print("color_code: ", color_code)
+target_object,target_object_id,color_code,path = get_path(map)
 print(path)
 
 cfg = make_simple_cfg(sim_settings)
@@ -205,7 +211,7 @@ for sub_dir in ['rgb/']:
 count = 0
 action = "move_forward"
 
-navigateAndSee(action, data_root,color_code)
+navigateAndSee(action, data_root,target_object_id,color_code)
 now = 0 
 while True:
     # keystroke = cv2.waitKey(0)
@@ -219,7 +225,7 @@ while True:
     elif action == "finish":
         print("action: FINISH")
         break
-    navigateAndSee(action, data_root,color_code)
+    navigateAndSee(action, data_root,target_object_id,color_code)
 
 make_gif(target_object)
 
