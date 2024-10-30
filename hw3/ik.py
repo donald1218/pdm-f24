@@ -76,6 +76,18 @@ def your_ik(robot_id, new_pose : list or tuple or np.ndarray,
 
     # TODO: update tmp_q
     # tmp_q = ? # may be more than one line
+    # split dr into 100 parts
+    step_rate = 0.01
+    for i in range (max_iters):
+        current_pose, J = your_fk(get_ur5_DH_params(), tmp_q, base_pos)
+        error = new_pose - current_pose
+        if np.linalg.norm(error) < stop_thresh:
+            break
+        dq = pinv(J) @ (error[:6] * step_rate)
+        tmp_q += dq
+        
+
+
 
     # hint : 
     # 1. You may use `your_fk` function and jacobian matrix to do this
@@ -84,7 +96,6 @@ def your_ik(robot_id, new_pose : list or tuple or np.ndarray,
 
     ###################
     
-    raise NotImplementedError
 
     return list(tmp_q) # 6 DoF
 
