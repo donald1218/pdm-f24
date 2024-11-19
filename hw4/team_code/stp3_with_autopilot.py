@@ -1064,5 +1064,36 @@ class Stp3Agent(AutoPilot):
         future_egomotions = []
         # TODO_1: Implement the future egomotion calculation
         
-        raise NotImplementedError()
+        for i in range(0,len(seq_x)-1):
+            Tcc_w = self.get_Trans_w_c(self,0, 0, seq_theta[i], seq_x[i], seq_y[i], 0)
+            Tcn_w = self.get_Trans_w_c(self,0, 0, seq_theta[i+1], seq_x[i+1], seq_y[i+1], 0)
+            Tcc_cn = np.linalg.inv(Tcn_w) @ Tcc_w
+            future_egomotions.append(mat2pose_vec(Tcc_cn))
+            
         return future_egomotions
+    
+    
+    def get_Trans_w_c(self,theta, phi, gamma, dx, dy, dz):
+        Rx = np.array([[1, 0, 0],
+                    [0, np.cos(theta), -np.sin(theta)],
+                    [0, np.sin(theta), np.cos(theta)]])
+
+        Ry = np.array([[np.cos(phi), 0, np.sin(phi)],
+                    [0, 1, 0],
+                    [-np.sin(phi), 0, np.cos(phi)]])
+
+        Rz = np.array([[np.cos(gamma), -np.sin(gamma), 0],
+                    [np.sin(gamma), np.cos(gamma), 0],
+                    [0, 0, 1]])
+        
+        R = (Rz@Ry)@Rx
+        
+        T = np.array([dx,dy,dz])
+        
+        R_t = np.eye(4)
+        
+        R_t[0:3,0:3] = R
+        
+        R_t[0:3,3] = T
+        
+        return R_t
