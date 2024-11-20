@@ -1037,10 +1037,30 @@ class Stp3Agent(AutoPilot):
         
         # TODO_2-1: Implement the affine matrix calculation
         matrix = None
+        x1_pix, y1_pix = int((x1 + 32.0) / 0.25) , int((y1 + 32.0) / 0.25) 
+        x2_pix, y2_pix = int((x2 + 32.0) / 0.25) , int((y2 + 32.0) / 0.25) 
+
+        theta1_rad = np.deg2rad(theta1)
+        theta2_rad = np.deg2rad(theta2)
+
+        dx_pix = x2_pix - x1_pix
+        dy_pix = y2_pix - y1_pix
+
+        delta_theta = theta2_rad - theta1_rad
+        cos_theta, sin_theta = np.cos(delta_theta), np.sin(delta_theta)
+
+        rotation_matrix = np.array([
+            [cos_theta, -sin_theta],
+            [sin_theta, cos_theta]
+        ])
+
+        translation = np.array([dx_pix, dy_pix])
+
+        matrix = np.hstack((rotation_matrix, translation.reshape(-1, 1)))
+
+    
+        return torch.tensor(matrix, dtype=torch.float32)
         
-        
-        raise NotImplementedError()
-        return matrix
     
     def get_future_egomotion(self, seq_x, seq_y, seq_theta):
         """

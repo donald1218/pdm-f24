@@ -380,10 +380,10 @@ class STP3(nn.Module):
         """
         # TODO_2-2: Implement the warp_features() function
         
+        grid = F.affine_grid(affine_mats, x.shape)
+        x_warped = F.grid_sample(x, grid, mode='bilinear', padding_mode='zeros')
         
-        
-        raise NotImplementedError
-        return x
+        return x_warped
 
     def calculate_birds_eye_view_features(self, x, intrinsics, extrinsics, affine_mats, depths):
         """

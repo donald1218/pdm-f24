@@ -94,10 +94,29 @@ def create_affine_mat(x1, y1, theta1, x2, y2, theta2):
     
     # TODO_2-1: Implement the affine matrix calculation
     matrix = None
-    
-    
-    raise NotImplementedError()
-    return matrix
+    x1_pix, y1_pix = int((x1 + 32.0) / 0.25) , int((y1 + 32.0) / 0.25) 
+    x2_pix, y2_pix = int((x2 + 32.0) / 0.25) , int((y2 + 32.0) / 0.25) 
+
+    theta1_rad = np.deg2rad(theta1)
+    theta2_rad = np.deg2rad(theta2)
+
+    dx_pix = x2_pix - x1_pix
+    dy_pix = y2_pix - y1_pix
+
+    delta_theta = theta2_rad - theta1_rad
+    cos_theta, sin_theta = np.cos(delta_theta), np.sin(delta_theta)
+
+    rotation_matrix = np.array([
+        [cos_theta, -sin_theta],
+        [sin_theta, cos_theta]
+    ])
+
+    translation = np.array([dx_pix, dy_pix])
+
+    matrix = np.hstack((rotation_matrix, translation.reshape(-1, 1)))
+
+  
+    return torch.tensor(matrix, dtype=torch.float32)
 
 def warp_features(x, affine_mats):
     """
@@ -111,11 +130,13 @@ def warp_features(x, affine_mats):
         torch.Tensor: The warped BEV map tensor with the same shape as the input `x`.
     """
     # TODO_2-2: Implement the warp_features() function
+    grid = F.affine_grid(affine_mats, x.shape)
+    x_warped = F.grid_sample(x, grid, mode='bilinear', padding_mode='zeros')
     
     
     
-    raise NotImplementedError
-    return x
+    # raise NotImplementedError
+    return x_warped
 
 
 def process(file_name):
