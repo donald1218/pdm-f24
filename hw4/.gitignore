@@ -4,3 +4,4 @@ logs/
 *.ckpt
 CARLA_0.9.15
 team_code/checkpoint
+data1/
