@@ -1013,7 +1013,9 @@ class Stp3Agent(AutoPilot):
     def create_affine_mat(self, x1, y1, theta1, x2, y2, theta2):
         """
         Create an affine transformation matrix to map the BEV representation from one ego vehicle pose to another.
-        
+        Please refer to the Documentation of Carla's coordinate system (https://github.com/autonomousvision/carla_garage/blob/main/docs/coordinate_systems.md)
+        The Compass coordinate system is different from the World's coordinate system.
+
         Hint:
         You can follow OpenCV's or PyTorch's Affine Transformation process and return proper shape of your affine matrix.
         The wrap_features function in stp3.py will use this matrix to warp the BEV representation.        
