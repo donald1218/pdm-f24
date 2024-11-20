@@ -1067,8 +1067,8 @@ class Stp3Agent(AutoPilot):
         for i in range(0,len(seq_x)-1):
             Tcc_w = self.get_Trans_w_c(self,0, 0, seq_theta[i], seq_x[i], seq_y[i], 0)
             Tcn_w = self.get_Trans_w_c(self,0, 0, seq_theta[i+1], seq_x[i+1], seq_y[i+1], 0)
-            Tcc_cn = np.linalg.inv(Tcn_w) @ Tcc_w
-            future_egomotions.append(mat2pose_vec(Tcc_cn))
+            Tcn_cc = np.linalg.inv(Tcc_w) @ Tcn_w
+            future_egomotions.append(mat2pose_vec(Tcn_cc))
             
         return future_egomotions
     

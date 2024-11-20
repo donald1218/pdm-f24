@@ -2,3 +2,5 @@ carla15/
 __pycache__/
 logs/
 *.ckpt
+CARLA_0.9.15
+team_code/checkpoint
