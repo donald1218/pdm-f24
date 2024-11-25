@@ -467,12 +467,12 @@ class Stp3Agent(AutoPilot):
                 - steer (float) : A scalar value to control the vehicle steering [-1.0, 1.0]. Default is 0.0.
                 - brake (float) : A scalar value to control the vehicle brake [0.0, 1.0]. Default is 0.0.
             """
-            steer = 0.0
+            steer = 1.0
             throttle = 0.0
             brake = 0.0
             # TODO_4: Implement the basic control logic
             
-            raise NotImplementedError
+            # raise NotImplementedError
             return carla.VehicleControl(steer=steer, throttle=throttle, brake=brake)
 
         # Get the control from the autopilot
@@ -495,7 +495,7 @@ class Stp3Agent(AutoPilot):
 
     def vis(self, output, images, lidar):
         for key in output:
-            # print(key)
+            print(key)
             if  output[key] is not None and torch.is_tensor(output[key]):
                 output[key]= output[key].detach().clone()
                     
