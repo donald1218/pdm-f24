@@ -467,11 +467,43 @@ class Stp3Agent(AutoPilot):
                 - steer (float) : A scalar value to control the vehicle steering [-1.0, 1.0]. Default is 0.0.
                 - brake (float) : A scalar value to control the vehicle brake [0.0, 1.0]. Default is 0.0.
             """
-            steer = 1.0
+            steer = 0.0
             throttle = 0.0
             brake = 0.0
             # TODO_4: Implement the basic control logic
-            
+            semantic_seg =  F.softmax(output['segmentation'], dim=2)[:, :, 1:, :, :].squeeze(2).detach().cpu().numpy()
+            _, total_of_time, _, _ = semantic_seg.shape
+            # 118,139 124,132
+            ego_zone_1 = (slice(116, 142), slice(121, 136))
+            ego_zone_2 = (slice(116, 142), slice(118, 138))
+            threshold = 0.4
+            collision_risk = False
+            slow_speed = False
+            for t in range(0, total_of_time):  # t0 ~ t6
+                sem_future = semantic_seg[0, t]
+                if  (sem_future[ego_zone_1] > threshold).any():
+                    collision_risk = True
+                    break
+                
+            if(not collision_risk):
+                for t in range(0, total_of_time):
+                    sem_future = semantic_seg[0, t]    
+                    if  (sem_future[ego_zone_2] > threshold).any():
+                        slow_speed = True
+                        break
+
+            if(collision_risk):
+                print("brake")
+                brake = 1.0
+                throttle = 0.0
+            elif(slow_speed):
+                print("slow")
+                throttle = 0.2
+                brake = 0.0
+            else:
+                print("go")
+                throttle = 0.7
+                brake = 0.0
             # raise NotImplementedError
             return carla.VehicleControl(steer=steer, throttle=throttle, brake=brake)
 
@@ -495,8 +527,9 @@ class Stp3Agent(AutoPilot):
 
     def vis(self, output, images, lidar):
         for key in output:
-            print(key)
+            # depth_prediction,segmentation, area, obstacle, pedestrian, stop
             if  output[key] is not None and torch.is_tensor(output[key]):
+                # print(key)    
                 output[key]= output[key].detach().clone()
                     
         colors = {
@@ -1087,12 +1120,12 @@ class Stp3Agent(AutoPilot):
         # TODO_1: Implement the future egomotion calculation
         
         for i in range(0,len(seq_x)-1):
-            Tcc_w = self.get_Trans_w_c(self,0, 0, seq_theta[i], seq_x[i], seq_y[i], 0)
-            Tcn_w = self.get_Trans_w_c(self,0, 0, seq_theta[i+1], seq_x[i+1], seq_y[i+1], 0)
+            Tcc_w = self.get_Trans_w_c(0, 0, np.deg2rad(seq_theta[i]), seq_x[i], seq_y[i], 0)
+            Tcn_w = self.get_Trans_w_c(0, 0, np.deg2rad(seq_theta[i+1]), seq_x[i+1], seq_y[i+1], 0)
             Tcn_cc = np.linalg.inv(Tcc_w) @ Tcn_w
-            future_egomotions.append(mat2pose_vec(Tcn_cc))
+            future_egomotions.append(mat2pose_vec(torch.tensor(Tcn_cc)))
             
-        return future_egomotions
+        return torch.stack(future_egomotions)
     
     
     def get_Trans_w_c(self,theta, phi, gamma, dx, dy, dz):

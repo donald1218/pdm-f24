@@ -402,27 +402,32 @@ class STP3(nn.Module):
         affine_mats = pack_sequence_dim(affine_mats)
         geometry = self.get_geometry(intrinsics, extrinsics)
         
-        x_encoded, depth, cam_front = self.encoder_forward(x)
-        x_bev = self.projection_to_birds_eye_view(x_encoded, geometry)
-        x_warped = self.warp_features(x_bev, affine_mats)
+        # TODO_3
         
-        x_fused = torch.zeros_like(x_warped) 
-
-        x_fused[:, 0] = x_warped[:, 0]  
-
-        for t in range(1, s):
-            current_feature = x_warped[:, t]
-            discounted_features = sum(
-                alpha**i * x_fused[:, t - i - 1] for i in range(t)
-            )
-            x_fused[:, t] = current_feature + discounted_features
+        x, depth, cam_front = self.encoder_forward(x)
         
+        # b, n, d, h, w, c = 3, 6, 32, 28, 50, 64
+        hidden = x
+        x = self.projection_to_birds_eye_view(x, geometry)
+        x = self.warp_features(x, affine_mats)
+
         # raise NotImplementedError
+        output = torch.zeros_like(x)
+        for t in range(3):
+            fuse = x[t]
+            for i in range(0, 3):
+                alpha = self.temporal_coef[0, t, i, 0, 0, 0]
+                fuse = fuse + alpha * x[i]
+            output[t] = fuse
+        
+        x = output
 
+        x = unpack_sequence_dim(x, b, s)
         geometry = unpack_sequence_dim(geometry, b, s)
         depth = unpack_sequence_dim(depth, b, s)
         cam_front = unpack_sequence_dim(cam_front, b, s)[:,-1] if cam_front is not None else None
-        return x, depth, x_fused, cam_front
+
+        return x, depth, hidden, cam_front
 
     def distribution_forward(self, present_features, future_inputs, is_train, min_log_sigma, max_log_sigma):
         """
