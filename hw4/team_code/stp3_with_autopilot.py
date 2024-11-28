@@ -107,6 +107,8 @@ class Stp3Agent(AutoPilot):
         
         self.extrinsics, self.intrinsics = self.get_cam_para()
         
+        self.throttle_times = 0
+        
         
         self.normalise_image = torchvision.transforms.Compose(
         [
@@ -474,15 +476,29 @@ class Stp3Agent(AutoPilot):
             semantic_seg =  F.softmax(output['segmentation'], dim=2)[:, :, 1:, :, :].squeeze(2).detach().cpu().numpy()
             _, total_of_time, _, _ = semantic_seg.shape
             # 118,139 124,132
-            ego_zone_1 = (slice(116, 142), slice(121, 136))
-            ego_zone_2 = (slice(116, 142), slice(118, 138))
+            ego_zone_1 = (slice(110, 139), slice(123, 135))
+            ego_zone_2 = (slice(102, 139), slice(123, 135))
             threshold = 0.4
             collision_risk = False
+            collision_p = False
             slow_speed = False
-            for t in range(0, total_of_time):  # t0 ~ t6
+            stop_t = -1
+            
+            break_strength = [0.0, 0.0, 1.0, 0.8, 0.6, 0.3, 0.1]
+            # throttle_strength = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            
+            for t in range(2, total_of_time):  # t1 ~ t6
                 sem_future = semantic_seg[0, t]
                 if  (sem_future[ego_zone_1] > threshold).any():
+                    stop_t = t
                     collision_risk = True
+                    break
+            for t in range(0, 2):
+                if(collision_risk):
+                    break
+                sem_future = semantic_seg[0, t]
+                if  (sem_future[ego_zone_1] > threshold).any():
+                    collision_p = True
                     break
                 
             if(not collision_risk):
@@ -493,16 +509,30 @@ class Stp3Agent(AutoPilot):
                         break
 
             if(collision_risk):
-                print("brake")
-                brake = 1.0
+                print("brake ",self.throttle_times)
+                if(self.throttle_times > 0):
+                    brake = break_strength[stop_t]
+                    self.throttle_times -= 1
+                    # throttle = throttle_strength[stop_t]
+                    throttle = 0.0
+                else:
+                    brake = 0.0
+                    throttle = 0.0
+            elif(collision_p):
+                print("brake_p")
+                brake = 0.40
                 throttle = 0.0
             elif(slow_speed):
                 print("slow")
                 throttle = 0.2
                 brake = 0.0
             else:
-                print("go")
-                throttle = 0.7
+                print("go ",self.throttle_times)
+                if(self.throttle_times < 20):
+                    self.throttle_times += 1
+                    throttle = 0.9
+                else : 
+                    throttle = 0.65
                 brake = 0.0
             # raise NotImplementedError
             return carla.VehicleControl(steer=steer, throttle=throttle, brake=brake)
@@ -621,6 +651,7 @@ class Stp3Agent(AutoPilot):
 
         
         # draw ego 
+        # 118:139 124:132
         total_plot[118:139, 124:132] = colors["blue"]
         
         
