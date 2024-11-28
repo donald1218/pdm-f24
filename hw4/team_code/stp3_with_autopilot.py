@@ -478,7 +478,7 @@ class Stp3Agent(AutoPilot):
             # 118,139 124,132
             ego_zone_1 = (slice(110, 139), slice(123, 135))
             ego_zone_2 = (slice(102, 139), slice(123, 135))
-            threshold = 0.4
+            threshold = 0.35
             collision_risk = False
             collision_p = False
             slow_speed = False
