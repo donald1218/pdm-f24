@@ -1101,24 +1101,30 @@ class Stp3Agent(AutoPilot):
         
         # TODO_2-1: Implement the affine matrix calculation
         matrix = None
-        x1_pix, y1_pix = int((x1 + 32.0) / 0.25) , int((y1 + 32.0) / 0.25) 
-        x2_pix, y2_pix = int((x2 + 32.0) / 0.25) , int((y2 + 32.0) / 0.25) 
-
         theta1_rad = np.deg2rad(theta1)
         theta2_rad = np.deg2rad(theta2)
 
-        dx_pix = x2_pix - x1_pix
-        dy_pix = y2_pix - y1_pix
 
         delta_theta = theta2_rad - theta1_rad
-        cos_theta, sin_theta = np.cos(delta_theta), np.sin(delta_theta)
 
+        r2 = np.array([
+            [np.cos(theta2_rad), -np.sin(theta2_rad)],
+            [np.sin(theta2_rad), np.cos(theta2_rad)]
+        ])
+        x1s = [x1,y1]
+        x2s = [x2,y2]
+        x1_1 = np.linalg.inv(r2) @ x1s
+        x2_1 = np.linalg.inv(r2) @ x2s
+        dx_pix = (x2_1[0] - x1_1[0])/32
+        dy_pix = (x2_1[1] - x1_1[1])/32
+        cos_theta, sin_theta = np.cos(delta_theta), np.sin(delta_theta)
+        dxy = [dx_pix,dy_pix]
         rotation_matrix = np.array([
             [cos_theta, -sin_theta],
             [sin_theta, cos_theta]
         ])
-
-        translation = np.array([dx_pix, dy_pix])
+        dxy = rotation_matrix @ dxy
+        translation = np.array([dxy[1],-dxy[0]])
 
         matrix = np.hstack((rotation_matrix, translation.reshape(-1, 1)))
 
